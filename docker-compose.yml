@@ -1,0 +1,32 @@
+# Meteora — one-command local dev / single-host production.
+#   docker compose up --build
+# API on http://localhost:8787  ·  web app on http://localhost:5555
+
+services:
+  api:
+    build: .
+    image: meteora:latest
+    container_name: meteora-api
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    volumes:
+      - meteora-data:/data
+    environment:
+      - METEORA_DB=/data/meteora.db
+
+  web:
+    image: python:3.12-slim
+    container_name: meteora-web
+    restart: unless-stopped
+    working_dir: /web
+    volumes:
+      - ./web:/web:ro
+    command: python -m http.server 5555
+    ports:
+      - "5555:5555"
+    depends_on:
+      - api
+
+volumes:
+  meteora-data:

@@ -6,6 +6,9 @@
 const API_BASE = (location.hostname === "localhost" || location.hostname === "127.0.0.1")
   ? `http://${location.hostname}:8787`
   : "";  // same-origin if bundled
+// Demo key baked in so the public demo works out-of-the-box.
+// Users get their own key from POST /v1/keys.
+const DEMO_KEY = new URLSearchParams(location.search).get("key") || "mto_qePCD3DwqbOEhVjj5DvuXZyHJqbyaKCf";
 
 // ─── DOM refs ───
 const form       = document.getElementById("search-form");
@@ -30,7 +33,8 @@ const statPres = document.getElementById("stat-pres");
 
 // ─── helpers ───
 async function api(path) {
-  const url = API_BASE + path;
+  const sep = path.includes("?") ? "&" : "?";
+  const url = API_BASE + path + sep + "key=" + DEMO_KEY;
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
   return { data: await r.json(), url };

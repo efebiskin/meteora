@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
+# ─── Core / location ─────────────────────────────────────────────────────────
 class Location(BaseModel):
     latitude: float
     longitude: float
@@ -12,8 +13,8 @@ class Location(BaseModel):
     timezone: str
 
 
+# ─── Current / forecast / hourly ─────────────────────────────────────────────
 class CurrentWeather(BaseModel):
-    """Current conditions at a point in time."""
     time: str = Field(..., description="ISO-8601 local time at the coordinates")
     temperature_c: float
     feels_like_c: float
@@ -29,7 +30,6 @@ class CurrentWeather(BaseModel):
 
 
 class ForecastDay(BaseModel):
-    """One day in a forecast."""
     date: str
     temp_max_c: float
     temp_min_c: float
@@ -38,6 +38,20 @@ class ForecastDay(BaseModel):
     wind_max_kmh: float
     sunrise: str
     sunset: str
+    weather_code: int
+    weather_description: str
+    uv_index_max: Optional[float] = None
+
+
+class HourlyEntry(BaseModel):
+    time: str
+    temperature_c: float
+    feels_like_c: float
+    humidity_pct: int
+    wind_speed_kmh: float
+    precipitation_mm: float
+    precipitation_chance_pct: int
+    cloud_cover_pct: int
     weather_code: int
     weather_description: str
 
@@ -50,6 +64,63 @@ class CurrentResponse(BaseModel):
 class ForecastResponse(BaseModel):
     location: Location
     days: List[ForecastDay]
+
+
+class HourlyResponse(BaseModel):
+    location: Location
+    hours: List[HourlyEntry]
+
+
+class HistoricalDay(BaseModel):
+    date: str
+    temp_max_c: float
+    temp_min_c: float
+    temp_mean_c: float
+    precipitation_mm: float
+    wind_max_kmh: float
+
+
+class HistoricalResponse(BaseModel):
+    location: Location
+    start_date: str
+    end_date: str
+    days: List[HistoricalDay]
+
+
+class AirQuality(BaseModel):
+    time: str
+    pm10_ug_m3: Optional[float] = None
+    pm2_5_ug_m3: Optional[float] = None
+    ozone_ug_m3: Optional[float] = None
+    nitrogen_dioxide_ug_m3: Optional[float] = None
+    european_aqi: Optional[int] = None
+    us_aqi: Optional[int] = None
+
+
+class AirQualityResponse(BaseModel):
+    location: Location
+    current: AirQuality
+
+
+class BulkPoint(BaseModel):
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+    label: Optional[str] = None
+
+
+class BulkRequest(BaseModel):
+    points: List[BulkPoint] = Field(..., min_length=1, max_length=100)
+
+
+class BulkCurrentResult(BaseModel):
+    label: Optional[str]
+    location: Location
+    current: CurrentWeather
+
+
+class BulkCurrentResponse(BaseModel):
+    count: int
+    results: List[BulkCurrentResult]
 
 
 class GeoResult(BaseModel):
@@ -70,3 +141,28 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     provider: str
+    cache: Optional[dict] = None
+
+
+class SignupRequest(BaseModel):
+    email: EmailStr
+    tier: str = Field("free", pattern=r"^(free|pro|enterprise)$")
+
+
+class SignupResponse(BaseModel):
+    id: int
+    key: str = Field(..., description="Your new API key. Save it — it will not be shown again.")
+    prefix: str
+    email: str
+    tier: str
+    rate_limit: int
+    docs: str = "https://github.com/efebiskin/meteora#readme"
+
+
+class UsageResponse(BaseModel):
+    key_prefix: str
+    tier: str
+    rate_limit_daily: int
+    used_today: int
+    remaining_today: int
+    history: List[dict]

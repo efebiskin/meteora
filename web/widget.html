@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meteora Widget — for Xeneon Edge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /*
+    OPTIMIZED FOR CORSAIR XENEON EDGE (14.5" touchscreen, 2560×720).
+    Also scales down to ~480×320 for smaller screen slots.
+    Loads: api-base, lat, lon, key from URL params.
+      e.g. widget.html?base=http://192.168.1.10:8787&key=mto_xxx&lat=34.17&lon=-118.87
+  */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;background:#000;color:#f5f5f5;font-family:"Archivo",system-ui,sans-serif;overflow:hidden}
+
+  .w{
+    width:100%;height:100%;display:grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 2vmin;
+    padding: 3vmin;
+  }
+  @media (max-aspect-ratio: 3/2) {
+    .w { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  }
+
+  /* left pane: big number */
+  .left{display:flex;flex-direction:column;justify-content:center;gap:2vmin}
+  .label{font-family:"JetBrains Mono",monospace;font-size:clamp(10px,1.3vmin,16px);letter-spacing:.22em;color:#999;text-transform:uppercase}
+  .loc{font-size:clamp(16px,3vmin,34px);font-weight:700;letter-spacing:-.015em;line-height:1.1}
+  .temp{
+    font-size:clamp(80px,22vmin,240px);font-weight:900;line-height:.85;letter-spacing:-.04em;
+    background: linear-gradient(180deg,#ffffff 0%, #bbbbbb 100%);
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+  }
+  .temp sup{font-size:.25em;color:#888;margin-left:.1em;vertical-align:super;font-weight:500}
+  .desc{font-size:clamp(14px,2.2vmin,28px);color:#ddd;font-weight:500;font-style:italic}
+  .feels{font-family:"JetBrains Mono",monospace;font-size:clamp(10px,1.3vmin,15px);color:#888;letter-spacing:.1em;text-transform:uppercase}
+
+  /* right pane: forecast strip */
+  .right{display:flex;flex-direction:column;gap:1.2vmin}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1vmin;margin-bottom:1vmin}
+  .stat{background:#161616;border:1px solid #2a2a2a;padding:1.2vmin 1.6vmin}
+  .stat dt{font-family:"JetBrains Mono",monospace;font-size:clamp(8px,1.1vmin,13px);color:#888;letter-spacing:.15em;text-transform:uppercase}
+  .stat dd{font-size:clamp(14px,2.3vmin,26px);font-weight:700;color:#fff;margin-top:.2em}
+  .fc{display:grid;grid-template-columns:repeat(4,1fr);gap:1vmin;flex:1}
+  .fc-day{background:#161616;border:1px solid #2a2a2a;padding:1.2vmin;display:flex;flex-direction:column;gap:.3vmin;text-align:center;justify-content:center}
+  .fc-date{font-family:"JetBrains Mono",monospace;font-size:clamp(8px,1.1vmin,12px);color:#888;letter-spacing:.15em;text-transform:uppercase}
+  .fc-temp{font-size:clamp(14px,2.2vmin,24px);font-weight:700;color:#fff}
+  .fc-temp .low{color:#888;font-weight:400;font-size:.8em}
+  .fc-desc{font-size:clamp(9px,1.3vmin,14px);color:#bbb;font-style:italic;line-height:1.1;min-height:2.2em}
+
+  /* status */
+  .status{position:absolute;bottom:1vmin;left:3vmin;font-family:"JetBrains Mono",monospace;font-size:clamp(8px,1vmin,11px);color:#555;letter-spacing:.1em;text-transform:uppercase}
+  .status .live{color:#6ec46e}.status .live::before{content:"● "}
+
+  .err{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.9);color:#ff6b6b;font-family:"JetBrains Mono",monospace;padding:2vmin;font-size:clamp(12px,2vmin,18px);text-align:center}
+</style>
+</head>
+<body>
+  <div class="w" id="widget" hidden>
+    <div class="left">
+      <span class="label" id="label-current">Current</span>
+      <span class="loc" id="loc">—</span>
+      <span class="temp"><span id="temp">--</span><sup>°C</sup></span>
+      <span class="desc" id="desc">—</span>
+      <span class="feels">Feels like <span id="feels">--</span>°C · H <span id="hum">--</span>% · W <span id="wind">--</span>km/h</span>
+    </div>
+    <div class="right">
+      <div class="stats">
+        <div class="stat"><dt>Cloud cover</dt><dd id="cloud">--%</dd></div>
+        <div class="stat"><dt>Pressure</dt><dd id="pres">-- hPa</dd></div>
+      </div>
+      <div class="fc" id="fc"></div>
+    </div>
+  </div>
+  <div class="status" id="status">
+    <span id="status-text">loading…</span>
+    <span id="last-update"></span>
+  </div>
+  <div class="err" id="err" hidden></div>
+
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  const base = q.get("base") || (location.hostname === "localhost" || location.hostname === "127.0.0.1" ? `http://${location.hostname}:8787` : "");
+  const key  = q.get("key")  || "";
+  const lat  = parseFloat(q.get("lat") || "34.17");
+  const lon  = parseFloat(q.get("lon") || "-118.87");
+  const refreshMs = Math.max(60_000, parseInt(q.get("refresh") || "600000", 10)); // default 10 min
+
+  const $ = (id) => document.getElementById(id);
+  const fmt = (x) => Math.round(x);
+  const dayName = (iso) => new Date(iso).toLocaleDateString(undefined, { weekday: "short" });
+
+  async function api(path) {
+    const sep = path.includes("?") ? "&" : "?";
+    const url = `${base}${path}${key ? `${sep}key=${key}` : ""}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  }
+
+  async function refresh() {
+    try {
+      const [cur, fc] = await Promise.all([
+        api(`/v1/weather/current?lat=${lat}&lon=${lon}`),
+        api(`/v1/weather/forecast?lat=${lat}&lon=${lon}&days=4`),
+      ]);
+      // left
+      $("loc").textContent = `${cur.location.latitude.toFixed(2)}°, ${cur.location.longitude.toFixed(2)}°`;
+      $("temp").textContent = fmt(cur.current.temperature_c);
+      $("desc").textContent = cur.current.weather_description;
+      $("feels").textContent = fmt(cur.current.feels_like_c);
+      $("hum").textContent = cur.current.humidity_pct;
+      $("wind").textContent = fmt(cur.current.wind_speed_kmh);
+      $("cloud").textContent = cur.current.cloud_cover_pct + "%";
+      $("pres").textContent = fmt(cur.current.pressure_hpa) + " hPa";
+      // forecast
+      $("fc").innerHTML = fc.days.map(d => `
+        <div class="fc-day">
+          <span class="fc-date">${dayName(d.date)}</span>
+          <span class="fc-desc">${d.weather_description}</span>
+          <span class="fc-temp">${fmt(d.temp_max_c)}° <span class="low">${fmt(d.temp_min_c)}°</span></span>
+        </div>
+      `).join("");
+
+      $("widget").hidden = false;
+      $("err").hidden = true;
+      $("status-text").innerHTML = `<span class="live">LIVE · Meteora</span>`;
+      $("last-update").textContent = "· " + new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    } catch (e) {
+      $("err").hidden = false;
+      $("err").textContent = `Meteora error: ${e.message}`;
+      $("status-text").textContent = "error · retry in 30s";
+      setTimeout(refresh, 30_000);
+      return;
+    }
+    setTimeout(refresh, refreshMs);
+  }
+
+  refresh();
+})();
+</script>
+</body>
+</html>
