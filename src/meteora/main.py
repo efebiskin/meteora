@@ -28,13 +28,14 @@ from .auth import require_key, attach_rate_headers
 from .models import (
     AirQualityResponse, BulkCurrentResponse, BulkCurrentResult, BulkRequest,
     CurrentResponse, ForecastResponse, GeoSearchResponse, HealthResponse,
-    HistoricalResponse, HourlyResponse, SignupRequest, SignupResponse,
-    UsageResponse,
+    HistoricalResponse, HourlyResponse, QuotesResponse, SignupRequest,
+    SignupResponse, UsageResponse,
 )
 from .providers import (
     fetch_air_quality, fetch_current, fetch_forecast, fetch_historical,
     fetch_hourly, search_location,
 )
+from .quotes import fetch_quotes
 
 
 @asynccontextmanager
@@ -81,7 +82,7 @@ async def root():
     </style></head><body>
       <h1>Meteora</h1>
       <p><em>A production weather API for the modern age.</em></p>
-      <p><span class="pill">v{__version__}</span><span class="pill">7 ENDPOINTS</span><span class="pill">API KEYS</span><span class="pill">RATE LIMITED</span><span class="pill">CACHED</span></p>
+      <p><span class="pill">v{__version__}</span><span class="pill">8 ENDPOINTS</span><span class="pill">API KEYS</span><span class="pill">RATE LIMITED</span><span class="pill">CACHED</span></p>
       <hr/>
       <p><strong>Get a free API key (200 req/day):</strong></p>
       <p><code>POST /v1/keys &#123;"email": "you@example.com"&#125;</code></p>
@@ -94,6 +95,7 @@ async def root():
         <li><code>GET /v1/air-quality</code></li>
         <li><code>POST /v1/weather/bulk</code></li>
         <li><code>GET /v1/geo/search</code></li>
+        <li><code>GET /v1/quotes</code> — live stock &amp; ETF quotes</li>
       </ul>
       <p>Interactive docs: <a href="/docs">/docs</a></p>
       <hr/>
@@ -228,5 +230,32 @@ async def geo_search(
     rec=Depends(require_key),
 ) -> GeoSearchResponse:
     result = await _err(search_location(q, count))
+    attach_rate_headers(response, rec, request.state.usage_count)
+    return result
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Stock / ETF quotes
+# ═════════════════════════════════════════════════════════════════════════════
+@app.get("/v1/quotes", response_model=QuotesResponse, tags=["quotes"])
+async def quotes(
+    request: Request, response: Response,
+    symbols: str = Query(
+        ...,
+        description="Comma-separated ticker symbols, e.g. AAPL,TSLA,NVDA. Up to 50.",
+        examples=["AAPL,TSLA,NVDA,SPY"],
+    ),
+    rec=Depends(require_key),
+) -> QuotesResponse:
+    """Live stock / ETF quotes, proxied through Yahoo Finance with a Stooq fallback.
+
+    One request against your quota returns up to 50 symbols. Cached upstream for 60s.
+    """
+    syms = [s for s in (x.strip() for x in symbols.split(",")) if s]
+    if not syms:
+        raise HTTPException(422, "symbols must be a non-empty comma-separated list")
+    if len(syms) > 50:
+        raise HTTPException(422, f"too many symbols: {len(syms)} (max 50)")
+    result = await _err(fetch_quotes(tuple(syms)))
     attach_rate_headers(response, rec, request.state.usage_count)
     return result

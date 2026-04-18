@@ -166,3 +166,26 @@ class UsageResponse(BaseModel):
     used_today: int
     remaining_today: int
     history: List[dict]
+
+
+# ─── Stock quotes ────────────────────────────────────────────────────────────
+class Quote(BaseModel):
+    symbol: str
+    name: str
+    price: float
+    change: float = Field(..., description="Day change in currency units")
+    change_pct: float = Field(..., description="Day change as a percentage")
+    open: Optional[float] = None
+    high: Optional[float] = None
+    low: Optional[float] = None
+    previous_close: Optional[float] = None
+    volume: Optional[int] = None
+    currency: str = "USD"
+    exchange: Optional[str] = None
+    market_state: Optional[str] = Field(None, description="PRE | REGULAR | POST | CLOSED")
+
+
+class QuotesResponse(BaseModel):
+    count: int
+    source: str = Field(..., description="Upstream provider that served the data")
+    quotes: List[Quote]
