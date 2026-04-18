@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meteora"
+version = "0.1.0"
+description = "A public weather API that wraps Open-Meteo with a clean, unified schema. Built by Efe Biskin."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Efe Biskin", email = "efebskn@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "httpx>=0.25",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-asyncio>=0.21"]
+
+[project.scripts]
+meteora = "meteora.main:app"
+
+[project.urls]
+Homepage = "https://github.com/efebiskin/meteora"
+Issues = "https://github.com/efebiskin/meteora/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Meteora — Weather</title>
+<meta name="description" content="Demo weather app built on the Meteora API." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">⛈</span>
+    <span class="brand-name">METEORA</span>
+  </div>
+  <nav>
+    <a href="/docs" target="_blank">API docs</a>
+    <a href="https://github.com/efebiskin/meteora" target="_blank">GitHub</a>
+  </nav>
+</header>
+
+<main class="app">
+
+  <!-- Search -->
+  <section class="search">
+    <form id="search-form">
+      <input id="search-input" type="text" placeholder="Search a city…" autocomplete="off" />
+      <button type="submit" aria-label="Search">→</button>
+    </form>
+    <ul id="suggestions" class="suggestions"></ul>
+  </section>
+
+  <!-- Current conditions card -->
+  <section class="current" id="current-card" hidden>
+    <div class="current-head">
+      <p class="current-label">Current · <span id="current-loc"></span></p>
+      <p class="current-time" id="current-time"></p>
+    </div>
+    <div class="current-body">
+      <div class="current-temp">
+        <span id="current-temp-val">—</span><span class="unit">°C</span>
+      </div>
+      <div class="current-meta">
+        <p class="current-desc" id="current-desc">—</p>
+        <p class="current-feels">Feels like <em id="current-feels">—</em></p>
+      </div>
+    </div>
+    <dl class="current-stats">
+      <div><dt>Humidity</dt><dd id="stat-hum">—</dd></div>
+      <div><dt>Wind</dt><dd id="stat-wind">—</dd></div>
+      <div><dt>Cloud cover</dt><dd id="stat-cloud">—</dd></div>
+      <div><dt>Pressure</dt><dd id="stat-pres">—</dd></div>
+    </dl>
+  </section>
+
+  <!-- 7-day forecast -->
+  <section class="forecast" id="forecast-card" hidden>
+    <h3>7-day outlook</h3>
+    <div class="forecast-row" id="forecast-row"></div>
+  </section>
+
+  <!-- Status/loading/error -->
+  <section class="status" id="status">
+    <p>Search a city to begin — try <em>Thousand Oaks</em>, <em>Istanbul</em>, or <em>Reykjavík</em>.</p>
+  </section>
+
+  <!-- Code snippets (drawer) -->
+  <section class="code-drawer">
+    <details>
+      <summary>See the API calls this page makes →</summary>
+      <pre><code id="code-sample">// waiting for a search...</code></pre>
+    </details>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <span>Meteora v0.1.0 · data © Open-Meteo</span>
+  <span>Built by <a href="https://github.com/efebiskin">Efe Biskin</a></span>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
